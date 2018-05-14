@@ -9,8 +9,12 @@ resource "upcloud_server" "test" {
   zone     = "fi-hel1"
   hostname = "ubuntu.example.tld"
 
-  #cpu = "2"
-  #mem = "1024"
+  # cpu = "2"
+  # mem = "1024"
+  # firewall = false
+  plan = "2xCPU-4GB"
+
+  user_data = "echo upcloud-tf"
 
   # Login details
   login {
@@ -27,9 +31,16 @@ resource "upcloud_server" "test" {
   storage_devices = [
     {
       # You can use both storage template names and UUIDs
-      size    = 50
+      size    = 70
       action  = "clone"
       storage = "Ubuntu Server 16.04 LTS (Xenial Xerus)"
+      title   = "Storage 1"
+      tier    = "hdd"
+      backup_rule = [{
+        interval    = "sat"
+        time = "0200"
+        retention = "365"
+      },]
 
       #storage = "01ed68b5-ec65-44ec-8e98-0a9ddc187195"
     },
@@ -50,6 +61,26 @@ resource "upcloud_server" "test" {
     },
   ]
 }
+
+
+resource "upcloud_firewall_rule" "my-firewall-rule" {
+    server_id                 = "${upcloud_server.test.id}"
+    action                    = "accept"
+    comment                   = "Allow SSH from this network"
+    destination_address_end   = ""
+    destination_address_start = ""
+    destination_port_end      = "80"
+    destination_port_start    = "80"
+    direction                 = "in"
+    family                    = "IPv4"
+    icmp_type                 = ""
+    position                  = "1"
+    protocol                  = "tcp"
+    source_address_end        = ""
+    source_address_start      = ""
+    source_port_end           = ""
+    source_port_start         = ""
+  }
 
 output "ipv4_address" {
   value = "${upcloud_server.test.ipv4_address}"
