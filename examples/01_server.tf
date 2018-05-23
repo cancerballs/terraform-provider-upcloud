@@ -9,8 +9,35 @@ resource "upcloud_server" "test" {
   zone     = "fi-hel1"
   hostname = "ubuntu.example.tld"
 
-  #cpu = "2"
-  #mem = "1024"
+  # cpu = "2"
+  # mem = "1024"
+  # firewall = false
+  plan = "2xCPU-4GB"
+
+  user_data = "echo upcloud-tf"
+
+  ip_addresses = [
+    {
+      access = "public"
+      family = "IPv6"
+    },
+    {
+      access = "public"
+      family = "IPv6"
+    },
+    {
+      access = "public"
+      family = "IPv4"
+    },
+    {
+      access = "public"
+      family = "IPv4"
+    },
+    {
+      access = "public"
+      family = "IPv6"
+    }, 
+  ]
 
   # Login details
   login {
@@ -27,29 +54,63 @@ resource "upcloud_server" "test" {
   storage_devices = [
     {
       # You can use both storage template names and UUIDs
-      size    = 50
+      size    = 70
       action  = "clone"
       storage = "Ubuntu Server 16.04 LTS (Xenial Xerus)"
+      title   = "Storage 21"
+      tier    = "hdd"
+      backup_rule = [{
+        interval    = "sat"
+        time = "0200"
+        retention = "365"
+      },]
 
       #storage = "01ed68b5-ec65-44ec-8e98-0a9ddc187195"
     },
-    {
+    #{
       # Debian GNU/Linux 6.0.1 (Squeeze) (netinst)
       # Just to show you can attach different kinds of
       # resources to the instance
-      action = "attach"
+      #action = "attach"
 
-      storage = "01000000-0000-4000-8000-000020010301"
-      type    = "cdrom"
-    },
+      # storage = "01000000-0000-4000-8000-000020010301"
+      #storage = "01e49d10-0382-4dc8-aaaf-631ac73ca8a7"
+      #type    = "disk"
+      #title   = "Storage 686"
+      #size    = 30
+      #address = "virtio"
+    #},
     {
       # Additional 25 GB disk
       action = "create"
       size   = 25
       tier   = "maxiops"
+      title   = "Storage 667"
+      address = "ide"
     },
+
   ]
 }
+
+
+resource "upcloud_firewall_rule" "my-firewall-rule" {
+    server_id                 = "${upcloud_server.test.id}"
+    action                    = "accept"
+    comment                   = "Allow SSH from this network"
+    destination_address_end   = ""
+    destination_address_start = ""
+    destination_port_end      = "80"
+    destination_port_start    = "80"
+    direction                 = "in"
+    family                    = "IPv4"
+    icmp_type                 = ""
+    position                  = "1"
+    protocol                  = "tcp"
+    source_address_end        = ""
+    source_address_start      = ""
+    source_port_end           = ""
+    source_port_start         = ""
+  }
 
 output "ipv4_address" {
   value = "${upcloud_server.test.ipv4_address}"

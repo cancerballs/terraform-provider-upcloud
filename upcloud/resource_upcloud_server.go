@@ -61,6 +61,23 @@ func resourceUpCloudServer() *schema.Resource {
 				Optional: true,
 				Default:  true,
 			},
+			"ip_addresses": {
+				Type:     schema.TypeList,
+				Required: true,
+				MinItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"access": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+						"family": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+					},
+				},
+			},
 			"ipv4": {
 				Type:     schema.TypeBool,
 				Optional: true,
@@ -396,6 +413,142 @@ func resourceUpCloudServerUpdate(d *schema.ResourceData, meta interface{}) error
 			}
 		}
 	}
+	/*	if d.HasChange("ip_addresses") {
+		oldStorageDevicesI, storageDevicesI := d.GetChange("storage_devices")
+		d.Set("storage_devices", storageDevicesI)
+		storageDevices := storageDevicesI.([]interface{})
+		oldStorageDevices := oldStorageDevicesI.([]interface{})
+		log.Printf("[DEBUG] New storage devices: %v", storageDevices)
+		log.Printf("[DEBUG] Current storage devices: %v", oldStorageDevices)
+		for i, storageDevice := range storageDevices {
+			storageDevice := storageDevice.(map[string]interface{})
+			log.Printf("[DEBUG] Number of current storage devices: %v\n", len(oldStorageDevices))
+			var oldStorageDeviceN int
+			for i, oldStorageDevice := range oldStorageDevices {
+				id1 := oldStorageDevice.(map[string]interface{})["id"].(string)
+				id2 := storageDevice["id"].(string)
+				log.Printf("[DEBUG] Storage device Id 1: %v, Id 2: %v, Equal: %v", id1, id2, id1 == id2)
+				if id1 == id2 {
+					oldStorageDeviceN = i
+					break
+				}
+			}
+
+			log.Printf("[DEBUG] Old storage device number: %v\n", oldStorageDeviceN)
+			var oldStorageDevice map[string]interface{}
+			if oldStorageDeviceN < len(oldStorageDevices) {
+				oldStorageDevice = oldStorageDevices[oldStorageDeviceN].(map[string]interface{})
+			}
+			log.Printf("[DEBUG] New storage device: %v\n", storageDevice)
+			log.Printf("[DEBUG] Current storage device: %v\n", oldStorageDevice)
+			if oldStorageDevice == nil {
+				var newStorageDeviceID string
+				switch storageDevice["action"] {
+				case upcloud.CreateServerStorageDeviceActionCreate:
+					storage, err := buildStorage(storageDevice, i, meta, d.Get("hostname").(string), d.Get("zone").(string))
+					if err != nil {
+						return err
+					}
+					newStorage, err := client.CreateStorage(&request.CreateStorageRequest{
+						Size:  storage.Size,
+						Tier:  storage.Tier,
+						Title: storage.Title,
+						Zone:  d.Get("zone").(string),
+					})
+					if err != nil {
+						return err
+					}
+					newStorageDeviceID = newStorage.UUID
+					break
+				case upcloud.CreateServerStorageDeviceActionClone:
+					// storage, err := buildStorage(storageDevice, i, meta)
+					// if err != nil {
+					// 	return err
+					// }
+					// newStorage, err := client.CloneStorage(&request.CloneStorageRequest{
+					// 	UUID:  storageDevice["storage"].(string),
+					// 	Tier:  storage.Tier,
+					// 	Title: storage.Title,
+					// 	Zone:  d.Get("zone").(string),
+					// })
+					// if err != nil {
+					// 	return err
+					// }
+					newStorageDeviceID = storageDevice["storage"].(string)
+					break
+				case upcloud.CreateServerStorageDeviceActionAttach:
+					newStorageDeviceID = storageDevice["storage"].(string)
+					break
+				}
+
+				attachStorageRequest := request.AttachStorageRequest{
+					ServerUUID:  d.Id(),
+					StorageUUID: newStorageDeviceID,
+				}
+
+				if storageType := storageDevice["type"].(string); storageType != "" {
+					attachStorageRequest.Type = storageType
+				}
+
+				log.Printf("[DEBUG] Attach storage request: %v", attachStorageRequest)
+
+				client.AttachStorage(&attachStorageRequest)
+			} else {
+				log.Printf("[DEBUG] Try to modify storage device %v", storageDevice)
+				modifyStorage := &request.ModifyStorageRequest{
+					UUID:  storageDevice["id"].(string),
+					Size:  storageDevice["size"].(int),
+					Title: storageDevice["title"].(string),
+				}
+
+				if backupRule := storageDevice["backup_rule"].(map[string]interface{}); backupRule != nil && len(backupRule) != 0 {
+					log.Println("[DEBUG] Backup rule create")
+					retention, err := strconv.Atoi(backupRule["retention"].(string))
+					if err != nil {
+						return err
+					}
+
+					modifyStorage.BackupRule = &upcloud.BackupRule{
+						Interval:  backupRule["interval"].(string),
+						Retention: retention,
+						Time:      backupRule["time"].(string),
+					}
+				}
+
+				if oldStorageDevice["address"] != storageDevice["address"] {
+					log.Printf("[DEBUG] Trying to change address from %v to %v", oldStorageDevice["address"], storageDevice["address"])
+					client.DetachStorage(&request.DetachStorageRequest{
+						ServerUUID: d.Id(),
+						Address:    oldStorageDevice["address"].(string),
+					})
+					client.AttachStorage(&request.AttachStorageRequest{
+						ServerUUID:  d.Id(),
+						StorageUUID: storageDevice["id"].(string),
+						Address:     storageDevice["address"].(string),
+					})
+				}
+
+				log.Printf("[DEBUG] Storage modify request: %v\n", modifyStorage)
+
+				client.ModifyStorage(modifyStorage)
+
+				oldStorageDevices = append(oldStorageDevices[:oldStorageDeviceN], oldStorageDevices[oldStorageDeviceN+1:]...)
+			}
+		}
+		log.Printf("[DEBUG] Current storage devices: %v\n", oldStorageDevices)
+		for _, oldStorageDevice := range oldStorageDevices {
+			oldStorageDevice := oldStorageDevice.(map[string]interface{})
+			client.DetachStorage(&request.DetachStorageRequest{
+				ServerUUID: d.Id(),
+				Address:    oldStorageDevice["address"].(string),
+			})
+			if oldStorageDevice["action"] != upcloud.CreateServerStorageDeviceActionAttach {
+				client.DeleteStorage(&request.DeleteStorageRequest{
+					UUID: oldStorageDevice["id"].(string),
+				})
+			}
+		}
+	}*/
 	if d.HasChange("mem") || d.HasChange("cpu") || d.HasChange("firewall") {
 		_, newCPU := d.GetChange("cpu")
 		_, newMem := d.GetChange("mem")
@@ -420,6 +573,20 @@ func resourceUpCloudServerUpdate(d *schema.ResourceData, meta interface{}) error
 				r.MemoryAmount = strconv.Itoa(newMem.(int))
 			}
 		}
+		_, err := client.ModifyServer(r)
+		if err != nil {
+			return err
+		}
+	}
+	if d.HasChange("plan") {
+		_, newPlan := d.GetChange("plan")
+
+		r := &request.ModifyServerRequest{
+			UUID: d.Id(),
+		}
+
+		r.Plan = newPlan.(string)
+
 		_, err := client.ModifyServer(r)
 		if err != nil {
 			return err
@@ -510,7 +677,8 @@ func buildServerOpts(d *schema.ResourceData, meta interface{}) (*request.CreateS
 	}
 	r.StorageDevices = storageOpts
 
-	networkOpts, err := buildNetworkOpts(d, meta)
+	IPAddresses := d.Get("ip_addresses").([]interface{})
+	networkOpts, err := buildNetworkOpts(IPAddresses, meta)
 	if err != nil {
 		return nil, err
 	}
@@ -621,38 +789,47 @@ func buildStorageOpts(storageDevices []interface{}, meta interface{}, hostname, 
 	return storageCfg, nil
 }
 
-func buildNetworkOpts(d *schema.ResourceData, meta interface{}) ([]request.CreateServerIPAddress, error) {
+func buildNetworkOpts(IPAddresses []interface{}, meta interface{}) ([]request.CreateServerIPAddress, error) {
 	ifaceCfg := make([]request.CreateServerIPAddress, 0)
-	if attr, ok := d.GetOk("ipv4"); ok {
-		publicIPv4 := attr.(bool)
-		if publicIPv4 {
-			publicIPv4 := request.CreateServerIPAddress{
-				Access: upcloud.IPAddressAccessPublic,
-				Family: upcloud.IPAddressFamilyIPv4,
-			}
-			ifaceCfg = append(ifaceCfg, publicIPv4)
-		}
-	}
-	if attr, ok := d.GetOk("private_networking"); ok {
-		setPrivateIP := attr.(bool)
-		if setPrivateIP {
+	log.Printf("[DEBUG] IPADDRESSES: %v", IPAddresses)
+
+	for _, IPAddress := range IPAddresses {
+		//IPAddress, err := buildIPAddress(IPAddress.(map[string]interface{}))
+		ip := IPAddress.(map[string]interface{})
+		log.Printf("[DEBUG] IPADDRESS: %v", ip["access"].(string))
+
+		if ip["access"].(string) == upcloud.IPAddressAccessPrivate && ip["family"].(string) == upcloud.IPAddressFamilyIPv4 {
 			privateIPv4 := request.CreateServerIPAddress{
 				Access: upcloud.IPAddressAccessPrivate,
 				Family: upcloud.IPAddressFamilyIPv4,
 			}
 			ifaceCfg = append(ifaceCfg, privateIPv4)
 		}
-	}
-	if attr, ok := d.GetOk("ipv6"); ok {
-		publicIPv6 := attr.(bool)
-		if publicIPv6 {
+
+		if ip["access"].(string) == upcloud.IPAddressAccessPublic && ip["family"].(string) == upcloud.IPAddressFamilyIPv4 {
+			publicIPv4 := request.CreateServerIPAddress{
+				Access: upcloud.IPAddressAccessPublic,
+				Family: upcloud.IPAddressFamilyIPv4,
+			}
+			ifaceCfg = append(ifaceCfg, publicIPv4)
+		}
+
+		if ip["access"].(string) == upcloud.IPAddressAccessPublic && ip["family"].(string) == upcloud.IPAddressFamilyIPv6 {
 			publicIPv6 := request.CreateServerIPAddress{
 				Access: upcloud.IPAddressAccessPublic,
 				Family: upcloud.IPAddressFamilyIPv6,
 			}
 			ifaceCfg = append(ifaceCfg, publicIPv6)
 		}
+		/*
+			if err != nil {
+				return nil, err
+			}*/
+
+		// ifaceCfg = append(ifaceCfg, *IPAddress)
 	}
+	// log.Printf("[DEBUG] ifaceCfg: %v", ifaceCfg)
+
 	return ifaceCfg, nil
 }
 
