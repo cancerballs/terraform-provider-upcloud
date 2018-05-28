@@ -251,10 +251,21 @@ func resourceUpCloudServerRead(d *schema.ResourceData, meta interface{}) error {
 	d.Set("mem", server.MemoryAmount)
 
 	IPAddresses := d.Get("ip_addresses").([]interface{})
-	for i, IPAddress := range IPAddresses {
+
+	for _, IPAddress := range IPAddresses {
 		IPAddress := IPAddress.(map[string]interface{})
-		IPAddress["address"] = server.IPAddresses[i].Address
+		var used_ips []string
+
+		for _, serverIP := range server.IPAddresses {
+			if serverIP.Family == IPAddress["family"] && serverIP.Access == IPAddress["access"] {
+				if !stringInSlice(serverIP.Address, used_ips) {
+					IPAddress["address"] = serverIP.Address
+					used_ips = append(used_ips, serverIP.Address)
+				}
+			}
+		}
 	}
+
 	d.Set("ip_addresses", IPAddresses)
 
 	storageDevices := d.Get("storage_devices").([]interface{})
