@@ -23,10 +23,6 @@ resource "upcloud_server" "test" {
     },
     {
       access = "public"
-      family = "IPv6"
-    },
-    {
-      access = "public"
       family = "IPv4"
     },
     {
@@ -34,9 +30,9 @@ resource "upcloud_server" "test" {
       family = "IPv4"
     },
     {
-      access = "public"
-      family = "IPv6"
-    }, 
+      access = "private"
+      family = "IPv4"
+    },
   ]
 
   # Login details
@@ -112,6 +108,10 @@ resource "upcloud_firewall_rule" "my-firewall-rule" {
     source_port_start         = ""
   }
 
-output "ipv4_address" {
-  value = "${upcloud_server.test.ipv4_address}"
+#output "ipv4_address" {
+#  value = "${upcloud_server.test.ipv4_address}"
+#}
+
+output "ip_addresses" {
+  value = ["${upcloud_server.test.*.ip_addresses}"]
 }
