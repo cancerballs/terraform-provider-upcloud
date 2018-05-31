@@ -3,7 +3,6 @@ package upcloud
 import (
 	"fmt"
 	"log"
-	"reflect"
 	"strconv"
 	"time"
 
@@ -428,35 +427,71 @@ func resourceUpCloudServerUpdate(d *schema.ResourceData, meta interface{}) error
 		oldIPAddressesI, IPAddressesI := d.GetChange("ip_addresses")
 
 		d.Set("ip_addresses", IPAddressesI)
+
 		IPAddresses := IPAddressesI.([]interface{})
 		oldIPAddresses := oldIPAddressesI.([]interface{})
 
+		var new_ips []string
+		var old_ips []string
+
 		log.Printf("[DEBUG] New ip addresses: %v", IPAddresses)
 		log.Printf("[DEBUG] Current ip addresses: %v", oldIPAddresses)
+
+		IPAssignRequests := make([]request.AssignIPAddressRequest, 0)
+
 		for _, new_ip := range IPAddresses {
-			new_ip := new_ip.(map[string]interface{})
-			log.Printf("[DEBUG] new_ip: %v", new_ip)
+			ip := new_ip.(map[string]interface{})
+
+			if len(ip["address"].(string)) == 0 {
+				if ip["access"].(string) == upcloud.IPAddressAccessPrivate && ip["family"].(string) == upcloud.IPAddressFamilyIPv4 {
+					IPAssignRequest := request.AssignIPAddressRequest{
+						Access:     upcloud.IPAddressAccessPrivate,
+						Family:     upcloud.IPAddressFamilyIPv4,
+						ServerUUID: d.Id(),
+					}
+					IPAssignRequests = append(IPAssignRequests, IPAssignRequest)
+				}
+
+				if ip["access"].(string) == upcloud.IPAddressAccessPublic && ip["family"].(string) == upcloud.IPAddressFamilyIPv4 {
+					IPAssignRequest := request.AssignIPAddressRequest{
+						Access:     upcloud.IPAddressAccessPublic,
+						Family:     upcloud.IPAddressFamilyIPv4,
+						ServerUUID: d.Id(),
+					}
+					IPAssignRequests = append(IPAssignRequests, IPAssignRequest)
+				}
+
+				if ip["access"].(string) == upcloud.IPAddressAccessPublic && ip["family"].(string) == upcloud.IPAddressFamilyIPv6 {
+					IPAssignRequest := request.AssignIPAddressRequest{
+						Access:     upcloud.IPAddressAccessPublic,
+						Family:     upcloud.IPAddressFamilyIPv6,
+						ServerUUID: d.Id(),
+					}
+					IPAssignRequests = append(IPAssignRequests, IPAssignRequest)
+				}
+			} else {
+				new_ips = append(new_ips, ip["address"].(string))
+			}
 
 			for _, old_ip := range oldIPAddresses {
 				old_ip := old_ip.(map[string]interface{})
-				log.Printf("[DEBUG] old_ip: %v", old_ip)
-				eq := reflect.DeepEqual(old_ip, new_ip)
-
-				if eq {
-					log.Printf("[DEBUG] retain ip: %v", old_ip["address"].(string))
-				} else {
-					log.Printf("[DEBUG] actionable ip: %v", old_ip["address"].(string))
-				}
+				old_ips = append(old_ips, old_ip["address"].(string))
 			}
 		}
-		/*
-			for _, oldIPAddress := range oldIPAddresses {
-				oldIPAddress := oldIPAddress.(map[string]interface{})
 
-				client.ReleaseIPAddress(&request.ReleaseIPAddress{
-					IPAddress: oldIPAddresses["ip"].(string),
-				})
-			}*/
+		for _, IPAssignRequest := range IPAssignRequests {
+			log.Printf("[DEBUG] CREATE IP: %v", IPAssignRequest)
+			client.AssignIPAddress(&IPAssignRequest)
+		}
+
+		ips_diff_remove := difference(old_ips, new_ips)
+
+		for _, oldIPAddress := range ips_diff_remove {
+			log.Printf("[DEBUG] RELEASE IP: %v", oldIPAddress)
+			client.ReleaseIPAddress(&request.ReleaseIPAddressRequest{
+				IPAddress: oldIPAddress,
+			})
+		}
 	}
 
 	if d.HasChange("mem") || d.HasChange("cpu") || d.HasChange("firewall") {
@@ -706,7 +741,6 @@ func buildNetworkOpts(IPAddresses []interface{}, meta interface{}) ([]request.Cr
 	for _, IPAddress := range IPAddresses {
 		//IPAddress, err := buildIPAddress(IPAddress.(map[string]interface{}))
 		ip := IPAddress.(map[string]interface{})
-		log.Printf("[DEBUG] IP_ADDRESS: %v", ip["access"].(string))
 
 		if ip["access"].(string) == upcloud.IPAddressAccessPrivate && ip["family"].(string) == upcloud.IPAddressFamilyIPv4 {
 			privateIPv4 := request.CreateServerIPAddress{
