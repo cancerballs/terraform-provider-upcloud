@@ -736,10 +736,8 @@ func buildStorageOpts(storageDevices []interface{}, meta interface{}, hostname, 
 
 func buildNetworkOpts(IPAddresses []interface{}, meta interface{}) ([]request.CreateServerIPAddress, error) {
 	ifaceCfg := make([]request.CreateServerIPAddress, 0)
-	log.Printf("[DEBUG] IP_ADDRESSES: %v", IPAddresses)
 
 	for _, IPAddress := range IPAddresses {
-		//IPAddress, err := buildIPAddress(IPAddress.(map[string]interface{}))
 		ip := IPAddress.(map[string]interface{})
 
 		if ip["access"].(string) == upcloud.IPAddressAccessPrivate && ip["family"].(string) == upcloud.IPAddressFamilyIPv4 {
