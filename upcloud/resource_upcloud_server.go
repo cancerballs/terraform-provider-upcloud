@@ -251,15 +251,17 @@ func resourceUpCloudServerRead(d *schema.ResourceData, meta interface{}) error {
 
 	IPAddresses := d.Get("ip_addresses").([]interface{})
 
+	var used_ips []string
+
 	for _, IPAddress := range IPAddresses {
 		IPAddress := IPAddress.(map[string]interface{})
-		var used_ips []string
 
 		for _, serverIP := range server.IPAddresses {
 			if serverIP.Family == IPAddress["family"] && serverIP.Access == IPAddress["access"] {
 				if !stringInSlice(serverIP.Address, used_ips) {
 					IPAddress["address"] = serverIP.Address
 					used_ips = append(used_ips, serverIP.Address)
+					break
 				}
 			}
 		}
@@ -485,6 +487,9 @@ func resourceUpCloudServerUpdate(d *schema.ResourceData, meta interface{}) error
 		}
 
 		ips_diff_remove := difference(old_ips, new_ips)
+		log.Printf("[DEBUG] old IPs: %v", old_ips)
+		log.Printf("[DEBUG] new IPs: %v", new_ips)
+		log.Printf("[DEBUG] RELEASE IPs: %v", ips_diff_remove)
 
 		for _, oldIPAddress := range ips_diff_remove {
 			log.Printf("[DEBUG] RELEASE IP: %v", oldIPAddress)
